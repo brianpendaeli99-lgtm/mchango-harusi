@@ -64,9 +64,6 @@
   .btn-del-row:hover { background: #c0392b; color: #fff; }
   .notice { font-size: 12px; background: rgba(96,112,192,0.07); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; color: var(--text-hint); }
   .empty-state { text-align: center; padding: 2.5rem; color: var(--text-hint); font-size: 14px; }
-  .loading { text-align: center; padding: 2rem; color: var(--text-hint); font-size: 14px; }
-  .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--light); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 8px; vertical-align: middle; }
-  @keyframes spin { to { transform: rotate(360deg); } }
   .modal-overlay { position: fixed; inset: 0; background: rgba(10,15,46,0.75); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
   .modal-overlay.open { display: flex; }
   .modal { background: var(--cream); border-radius: 14px; width: 100%; max-width: 360px; overflow: hidden; }
@@ -81,9 +78,6 @@
   .error-msg { font-size: 12px; color: var(--red); text-align: center; margin: 8px 0 0; display: none; }
   .error-msg.show { display: block; }
   .edit-modal { background: var(--cream); border-radius: 14px; width: 100%; max-width: 420px; overflow: hidden; }
-  .saving-overlay { position: fixed; inset: 0; background: rgba(10,15,46,0.5); z-index: 500; display: none; align-items: center; justify-content: center; }
-  .saving-overlay.open { display: flex; }
-  .saving-box { background: var(--dark); color: var(--gold-light); padding: 20px 30px; border-radius: 10px; font-size: 1rem; display: flex; align-items: center; gap: 10px; }
 </style>
 </head>
 <body>
@@ -101,7 +95,6 @@
 <div class="content">
   <div class="notice">Ukurasa huu ni wa kuona mchango wa harusi ya Jose Mushi. Wasimamizi tu wanaweza kuongeza au kuhariri taarifa.</div>
 
-  <!-- Add Form (admin only) -->
   <div class="add-form" id="addForm">
     <h3>➕ Ongeza Mchangiaji Mpya</h3>
     <div class="form-row">
@@ -116,7 +109,6 @@
     <button style="width:100%;margin-top:8px;background:none;border:1px solid var(--border-strong);color:var(--text-muted);border-radius:6px;padding:9px;font-size:13px;cursor:pointer;" onclick="cancelAdd()">Ghairi</button>
   </div>
 
-  <!-- Bulk delete bar -->
   <div class="bulk-bar" id="bulkBar">
     <span id="bulkCount">0 wamechaguliwa</span>
     <div style="display:flex;gap:8px;">
@@ -125,17 +117,12 @@
     </div>
   </div>
 
-  <!-- Table -->
   <div class="table-wrap">
     <div class="table-header">
       <h3>📋 Orodha ya Wachangiaji</h3>
-      <span id="recordCount">Inapakia...</span>
+      <span id="recordCount"></span>
     </div>
-    <div id="tableBody"><div class="loading"><span class="spinner"></span> Inapakia...</div></div>
-  </div>
-
-  <div style="margin-top:10px;text-align:center;font-size:11px;color:var(--text-hint);">
-    Refresh ukurasa kuona mabadiliko mapya
+    <div id="tableBody"></div>
   </div>
 </div>
 
@@ -177,23 +164,326 @@
   </div>
 </div>
 
-<!-- Saving overlay -->
-<div class="saving-overlay" id="savingOverlay">
-  <div class="saving-box"><span class="spinner"></span> Inahifadhi...</div>
-</div>
-
 <script>
-const BIN_ID  = '6a29b07df5f4af5e29da1243';
-const API_KEY = '$2a$10$f0X57sESHsABlOjudfWnbOhFyojtzzKE2i8wk4f.3gm7pqtfMkITi';
-const BASE_URL = 'https://api.jsonbin.io/v3/b/' + BIN_ID;
 const ADMIN_PASSWORDS = ['harusi2026', 'jose2026'];
+const STORAGE_KEY = 'mchango_harusi_records';
+
+// Default records from Excel - all 290 contributors
+const DEFAULT_RECORDS = [
+  {id:1000,jina:"Familia - Willam Pendaeli - Dodoma",ahadi:2000000,malipo:2000000,salio:0},
+  {id:1001,jina:"Familia - Kenneth Pendaeli",ahadi:500000,malipo:500000,salio:0},
+  {id:1002,jina:"Familia - Dr. Kavit Mushi",ahadi:300000,malipo:300000,salio:0},
+  {id:1003,jina:"Famlia - Jimmy Mushi",ahadi:500000,malipo:500000,salio:0},
+  {id:1004,jina:"Dr. Richard Mushi",ahadi:200000,malipo:200000,salio:0},
+  {id:1005,jina:"Familia - Hosea Kimayo",ahadi:200000,malipo:200000,salio:0},
+  {id:1006,jina:"Familia - Nico Urio",ahadi:200000,malipo:0,salio:200000},
+  {id:1007,jina:"Familia - Mama Mtui",ahadi:300000,malipo:0,salio:300000},
+  {id:1008,jina:"Familia - Geoffrey Mlaga",ahadi:200000,malipo:200000,salio:0},
+  {id:1009,jina:"Familia - Saria",ahadi:200000,malipo:200000,salio:0},
+  {id:1010,jina:"Familia - Costa",ahadi:200000,malipo:0,salio:200000},
+  {id:1011,jina:"Familia - Emmanuel Masoso",ahadi:200000,malipo:0,salio:200000},
+  {id:1012,jina:"Familia - Ewarid Mangale",ahadi:200000,malipo:0,salio:200000},
+  {id:1013,jina:"Familia Evalist Athanas",ahadi:200000,malipo:0,salio:200000},
+  {id:1014,jina:"Famila chief Julius",ahadi:150000,malipo:0,salio:150000},
+  {id:1015,jina:"Familia ya Jacob Macha",ahadi:200000,malipo:0,salio:200000},
+  {id:1016,jina:"Familia ya Mc Nyayo",ahadi:200000,malipo:0,salio:200000},
+  {id:1017,jina:"Familia ya Eng Bujiku",ahadi:200000,malipo:0,salio:200000},
+  {id:1018,jina:"Bishop Yohana Nzelu",ahadi:0,malipo:0,salio:0},
+  {id:1019,jina:"Familia - Alfa Mtui",ahadi:150000,malipo:0,salio:150000},
+  {id:1020,jina:"Familia - HOR Robart Msalike",ahadi:0,malipo:0,salio:0},
+  {id:1021,jina:"Familia - Eng. Antory Sanga",ahadi:0,malipo:0,salio:0},
+  {id:1022,jina:"Familia - Rutayebesigwa",ahadi:0,malipo:0,salio:0},
+  {id:1023,jina:"Familia - Tumaini Mrema",ahadi:200000,malipo:0,salio:200000},
+  {id:1024,jina:"Familia - Mohamed Mfack (ZNZ)",ahadi:0,malipo:0,salio:0},
+  {id:1025,jina:"Familia - Fadhil Luoga (ZNZ)",ahadi:100000,malipo:0,salio:100000},
+  {id:1026,jina:"Familia - Antony Sweet",ahadi:150000,malipo:0,salio:150000},
+  {id:1027,jina:"God Omollo",ahadi:150000,malipo:0,salio:150000},
+  {id:1028,jina:"Familia - MC Kulunge",ahadi:150000,malipo:0,salio:150000},
+  {id:1029,jina:"Familia - MC Chikaka",ahadi:150000,malipo:0,salio:150000},
+  {id:1030,jina:"Familia - OSCA MWZ HOTEL",ahadi:200000,malipo:0,salio:200000},
+  {id:1031,jina:"Family - Philimon Sheshu",ahadi:150000,malipo:0,salio:150000},
+  {id:1032,jina:"Familia - EPHAT",ahadi:100000,malipo:0,salio:100000},
+  {id:1033,jina:"Familia - Emmanuel Machibya",ahadi:100000,malipo:0,salio:100000},
+  {id:1034,jina:"Evalist soft butcher",ahadi:100000,malipo:0,salio:100000},
+  {id:1035,jina:"Ezekiel Masala furniture",ahadi:150000,malipo:0,salio:150000},
+  {id:1036,jina:"Rona Lema",ahadi:150000,malipo:0,salio:150000},
+  {id:1037,jina:"Elly Mushi",ahadi:100000,malipo:0,salio:100000},
+  {id:1038,jina:"Elly Dom",ahadi:100000,malipo:0,salio:100000},
+  {id:1039,jina:"Eddy the Grand",ahadi:100000,malipo:0,salio:100000},
+  {id:1040,jina:"Familia - Edwin",ahadi:100000,malipo:0,salio:100000},
+  {id:1041,jina:"Familia - Dios Electric",ahadi:100000,malipo:0,salio:100000},
+  {id:1042,jina:"Familia - Bonny Kopokopo",ahadi:100000,malipo:0,salio:100000},
+  {id:1043,jina:"Dj HUSSEN",ahadi:100000,malipo:0,salio:100000},
+  {id:1044,jina:"Dj MCHINA",ahadi:150000,malipo:0,salio:150000},
+  {id:1045,jina:"Familia ya Tullo",ahadi:150000,malipo:0,salio:150000},
+  {id:1046,jina:"Familia - Dell Omollo",ahadi:100000,malipo:0,salio:100000},
+  {id:1047,jina:"Familia - Deo sabasaba",ahadi:100000,malipo:0,salio:100000},
+  {id:1048,jina:"Familia - Casto Mwinuka",ahadi:100000,malipo:0,salio:100000},
+  {id:1049,jina:"Familia - Michael Butcher",ahadi:100000,malipo:0,salio:100000},
+  {id:1050,jina:"Familia - Betram Eriyo",ahadi:100000,malipo:0,salio:100000},
+  {id:1051,jina:"Familia - BENNY KOVA",ahadi:100000,malipo:0,salio:100000},
+  {id:1052,jina:"Mafundi Gereji - watu wawili",ahadi:200000,malipo:0,salio:200000},
+  {id:1053,jina:"Family - Benjamin music",ahadi:100000,malipo:0,salio:100000},
+  {id:1054,jina:"Familia - JOKA MC",ahadi:150000,malipo:0,salio:150000},
+  {id:1055,jina:"Familia - Kizito Shosho",ahadi:100000,malipo:0,salio:100000},
+  {id:1056,jina:"Familia - God mayoyo",ahadi:150000,malipo:0,salio:150000},
+  {id:1057,jina:"Familia - Frank Kidola",ahadi:100000,malipo:0,salio:100000},
+  {id:1058,jina:"Familia - Sungi",ahadi:150000,malipo:0,salio:150000},
+  {id:1059,jina:"Familia - Chris Magaro DJ",ahadi:100000,malipo:0,salio:100000},
+  {id:1060,jina:"Familia - Dismas Mallya",ahadi:100000,malipo:0,salio:100000},
+  {id:1061,jina:"Familia - Amon Benedicto",ahadi:100000,malipo:0,salio:100000},
+  {id:1062,jina:"Familia - Frank Alphonce",ahadi:100000,malipo:0,salio:100000},
+  {id:1063,jina:"Familia - Frank Tbl",ahadi:100000,malipo:0,salio:100000},
+  {id:1064,jina:"Familia - Frank big",ahadi:100000,malipo:0,salio:100000},
+  {id:1065,jina:"Familia - Joseph broker",ahadi:100000,malipo:0,salio:100000},
+  {id:1066,jina:"Familia - Geoffrey Kimambo",ahadi:100000,malipo:0,salio:100000},
+  {id:1067,jina:"Familia - Kizinja",ahadi:150000,malipo:0,salio:150000},
+  {id:1068,jina:"Familia - Mwambikija",ahadi:100000,malipo:0,salio:100000},
+  {id:1069,jina:"Familia - Julias welding",ahadi:100000,malipo:0,salio:100000},
+  {id:1070,jina:"Familia - Nick Ipyana",ahadi:100000,malipo:0,salio:100000},
+  {id:1071,jina:"Familia - Beda Massawe",ahadi:0,malipo:0,salio:0},
+  {id:1072,jina:"Famillia - Pius Mambia",ahadi:0,malipo:0,salio:0},
+  {id:1073,jina:"Baba Clinton Mrema",ahadi:100000,malipo:0,salio:100000},
+  {id:1074,jina:"Familia - Philipo Majuva",ahadi:100000,malipo:0,salio:100000},
+  {id:1075,jina:"Familia - Max",ahadi:100000,malipo:0,salio:100000},
+  {id:1076,jina:"Familia - Present Mlay",ahadi:0,malipo:0,salio:0},
+  {id:1077,jina:"Familia - Shiratu",ahadi:0,malipo:0,salio:0},
+  {id:1078,jina:"Familia - Pius James",ahadi:100000,malipo:0,salio:100000},
+  {id:1079,jina:"Familia - Robert kiroriti",ahadi:100000,malipo:0,salio:100000},
+  {id:1080,jina:"Familia - Clement",ahadi:100000,malipo:0,salio:100000},
+  {id:1081,jina:"Familia - Losho",ahadi:100000,malipo:0,salio:100000},
+  {id:1082,jina:"Familia - Jacob Aluminum",ahadi:100000,malipo:0,salio:100000},
+  {id:1083,jina:"Familia - Leodace Mganyizi",ahadi:100000,malipo:0,salio:100000},
+  {id:1084,jina:"Dj Alibalioa",ahadi:150000,malipo:0,salio:150000},
+  {id:1085,jina:"Familia - Geoffrey Lusanjara",ahadi:100000,malipo:0,salio:100000},
+  {id:1086,jina:"Martha liquor service",ahadi:100000,malipo:0,salio:100000},
+  {id:1087,jina:"Geofrey Haule (ZNZ)",ahadi:100000,malipo:0,salio:100000},
+  {id:1088,jina:"BISHOP DIONIS",ahadi:300000,malipo:0,salio:300000},
+  {id:1089,jina:"Lake zone Tents",ahadi:0,malipo:0,salio:0},
+  {id:1090,jina:"Familia - Honest Mtui",ahadi:100000,malipo:0,salio:100000},
+  {id:1091,jina:"Familia - GODFATHER Sound",ahadi:100000,malipo:0,salio:100000},
+  {id:1092,jina:"ROCK SYLLY ROCK STUDIO",ahadi:100000,malipo:0,salio:100000},
+  {id:1093,jina:"Familia - kasimu sound",ahadi:100000,malipo:0,salio:100000},
+  {id:1094,jina:"Familia - Kaniki BOT",ahadi:100000,malipo:0,salio:100000},
+  {id:1095,jina:"TIMO FLOWER",ahadi:150000,malipo:0,salio:150000},
+  {id:1096,jina:"John Lukumay",ahadi:100000,malipo:0,salio:100000},
+  {id:1097,jina:"Familia - Barikel Mhando",ahadi:100000,malipo:0,salio:100000},
+  {id:1098,jina:"MC JK IRINGA",ahadi:0,malipo:0,salio:0},
+  {id:1099,jina:"Familia - Boniphance Mwita",ahadi:150000,malipo:0,salio:150000},
+  {id:1100,jina:"Familia - Nelson SHOO suit",ahadi:100000,malipo:0,salio:100000},
+  {id:1101,jina:"Dada PASCHAZIA MOGA",ahadi:100000,malipo:0,salio:100000},
+  {id:1102,jina:"Familia DR SWETARA",ahadi:100000,malipo:0,salio:100000},
+  {id:1103,jina:"Sir. ALEX Messa",ahadi:100000,malipo:0,salio:100000},
+  {id:1104,jina:"Philimon MANAGER Victoria Hotel",ahadi:100000,malipo:0,salio:100000},
+  {id:1105,jina:"Alonce Mpemba",ahadi:100000,malipo:0,salio:100000},
+  {id:1106,jina:"HERO MASAI",ahadi:100000,malipo:0,salio:100000},
+  {id:1107,jina:"JAMES MO",ahadi:150000,malipo:0,salio:150000},
+  {id:1108,jina:"Emmanuel Juma",ahadi:100000,malipo:0,salio:100000},
+  {id:1109,jina:"Familia - RHOBI CHACHA",ahadi:100000,malipo:0,salio:100000},
+  {id:1110,jina:"Familia - Jonas Mbalilaki",ahadi:100000,malipo:0,salio:100000},
+  {id:1111,jina:"PRAYGOD MECTANGA",ahadi:100000,malipo:0,salio:100000},
+  {id:1112,jina:"Sister MAIGE FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1113,jina:"BISHOP SELEMAN KILINGA",ahadi:0,malipo:0,salio:0},
+  {id:1114,jina:"ROSE CATARIAN",ahadi:100000,malipo:0,salio:100000},
+  {id:1115,jina:"JOSEPH RICHARD FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1116,jina:"LUSEKELO Family",ahadi:100000,malipo:0,salio:100000},
+  {id:1117,jina:"EMMANUEL Shayo family",ahadi:100000,malipo:0,salio:100000},
+  {id:1118,jina:"Emmanuel Massawe kabula",ahadi:0,malipo:0,salio:0},
+  {id:1119,jina:"Dr. FRED FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1120,jina:"Fred Mapambo family",ahadi:100000,malipo:0,salio:100000},
+  {id:1121,jina:"DEOSDETH KIMARO FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1122,jina:"Sir. ISACK MAKOMBE",ahadi:100000,malipo:0,salio:100000},
+  {id:1123,jina:"Familia - MSHOMAL MASAWE",ahadi:0,malipo:0,salio:0},
+  {id:1124,jina:"Familia - Fadhili Dullah",ahadi:100000,malipo:0,salio:100000},
+  {id:1125,jina:"MTOTO IDDI",ahadi:0,malipo:0,salio:0},
+  {id:1126,jina:"Amani Mally Masashua",ahadi:100000,malipo:0,salio:100000},
+  {id:1127,jina:"Dr. JESSY MICHAEL",ahadi:100000,malipo:0,salio:100000},
+  {id:1128,jina:"AIKO MWENDENUKA",ahadi:100000,malipo:0,salio:100000},
+  {id:1129,jina:"FAMILY - NELLY ELECTRIC",ahadi:100000,malipo:0,salio:100000},
+  {id:1130,jina:"LYIMO family IGE",ahadi:100000,malipo:0,salio:100000},
+  {id:1131,jina:"Madam VERONICA messa",ahadi:0,malipo:0,salio:0},
+  {id:1132,jina:"SEBARUA family",ahadi:100000,malipo:0,salio:100000},
+  {id:1133,jina:"HERMAN FAMILY ZION",ahadi:0,malipo:0,salio:0},
+  {id:1134,jina:"EDDO GARAGE",ahadi:0,malipo:0,salio:0},
+  {id:1135,jina:"Prof. ALPHONSE FAMILY",ahadi:300000,malipo:0,salio:300000},
+  {id:1136,jina:"HARUNI FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1137,jina:"JAPHET SCHOOL",ahadi:150000,malipo:0,salio:150000},
+  {id:1138,jina:"JOSHUA NGOSHA DECO",ahadi:100000,malipo:0,salio:100000},
+  {id:1139,jina:"Godfrey William",ahadi:0,malipo:0,salio:0},
+  {id:1140,jina:"FAMILIA - LAST MLAKI",ahadi:100000,malipo:0,salio:100000},
+  {id:1141,jina:"Prof. MLINGI",ahadi:300000,malipo:0,salio:300000},
+  {id:1142,jina:"Familia ya Jack Tomonji",ahadi:100000,malipo:0,salio:100000},
+  {id:1143,jina:"DAYANES FAMILY (TANESCO)",ahadi:100000,malipo:0,salio:100000},
+  {id:1144,jina:"Familia Ya Ramadan Sizya",ahadi:0,malipo:0,salio:0},
+  {id:1145,jina:"MALISA FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1146,jina:"Sir. MALAMSHA FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1147,jina:"Sir. TUNGI FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1148,jina:"MADAM CHICHOBELO family",ahadi:100000,malipo:0,salio:100000},
+  {id:1149,jina:"Dr. RETATUS Masawe FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1150,jina:"JULIUS KALISTI MASAWE FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1151,jina:"GOD Maspika",ahadi:100000,malipo:0,salio:100000},
+  {id:1152,jina:"Sir. MSODOKI family",ahadi:0,malipo:0,salio:0},
+  {id:1153,jina:"AFANDE NELSON Family",ahadi:100000,malipo:0,salio:100000},
+  {id:1154,jina:"EDGER MWANKKUGA family",ahadi:0,malipo:0,salio:0},
+  {id:1155,jina:"BONNY SWAI FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1156,jina:"Afande HASHIM FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1157,jina:"MALISA FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1158,jina:"YOHANA ISAMUHYO FAMILY",ahadi:0,malipo:0,salio:0},
+  {id:1159,jina:"MZEE MOLLEL",ahadi:100000,malipo:0,salio:100000},
+  {id:1160,jina:"DANIEL NDIMI family",ahadi:150000,malipo:0,salio:150000},
+  {id:1161,jina:"SIR. GILBERT FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1162,jina:"INNOCENT MAYUNGA",ahadi:100000,malipo:0,salio:100000},
+  {id:1163,jina:"Sir. EMMANUEL FUSI",ahadi:0,malipo:0,salio:0},
+  {id:1164,jina:"CHENGO PHONE",ahadi:100000,malipo:0,salio:100000},
+  {id:1165,jina:"FATHER PHILIMON SHESHU FAMILY",ahadi:150000,malipo:0,salio:150000},
+  {id:1166,jina:"ALFRED KWAYU FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1167,jina:"GABRIEL (BUMACO)",ahadi:100000,malipo:0,salio:100000},
+  {id:1168,jina:"TK DECORATIONS & FUNERAL SERVICE",ahadi:150000,malipo:0,salio:150000},
+  {id:1169,jina:"MLELA FAMILY",ahadi:150000,malipo:0,salio:150000},
+  {id:1170,jina:"JAMES MUSHI",ahadi:150000,malipo:0,salio:150000},
+  {id:1171,jina:"JENGA KINGAZI",ahadi:100000,malipo:0,salio:100000},
+  {id:1172,jina:"Dr. IPYANA DENTIST",ahadi:100000,malipo:0,salio:100000},
+  {id:1173,jina:"MKONYI FAMILY",ahadi:0,malipo:0,salio:0},
+  {id:1174,jina:"NICOLAUS SHIWA family",ahadi:100000,malipo:0,salio:100000},
+  {id:1175,jina:"HEZRON MAGWISHA family",ahadi:100000,malipo:0,salio:100000},
+  {id:1176,jina:"SAMSON KIDOSI Family",ahadi:100000,malipo:0,salio:100000},
+  {id:1177,jina:"Dr. ESTAR FAMILY",ahadi:100000,malipo:0,salio:100000},
+  {id:1178,jina:"FAMILY ?????????",ahadi:100000,malipo:0,salio:100000},
+  {id:1179,jina:"GERETA Victoria",ahadi:0,malipo:0,salio:0},
+  {id:1180,jina:"Family - Deo Assenga",ahadi:100000,malipo:0,salio:100000},
+  {id:1181,jina:"Familia - Nelson Mwashi",ahadi:150000,malipo:0,salio:150000},
+  {id:1182,jina:"Sister ANGELA PETER MAGESE",ahadi:120000,malipo:120000,salio:0},
+  {id:1183,jina:"MC Mark Junior",ahadi:200000,malipo:0,salio:200000},
+  {id:1184,jina:"Slatiel Family",ahadi:100000,malipo:0,salio:100000},
+  {id:1185,jina:"Kulwa Banzu Family",ahadi:100000,malipo:0,salio:100000},
+  {id:1186,jina:"Erick Family",ahadi:100000,malipo:0,salio:100000},
+  {id:1187,jina:"Gaston Claude Family",ahadi:100000,malipo:0,salio:100000},
+  {id:1188,jina:"Afande Deodorant",ahadi:300000,malipo:0,salio:300000},
+  {id:1189,jina:"Jacqueline John Riwa aka JR Electronic",ahadi:100000,malipo:100000,salio:0},
+  {id:1190,jina:"Anthony Mchau - June 16, 2026",ahadi:50000,malipo:50000,salio:0},
+  {id:1191,jina:"Alex Msumanje -",ahadi:100000,malipo:100000,salio:0},
+  {id:1192,jina:"Anne, Adria & Andrew Mapunda",ahadi:150000,malipo:150000,salio:0},
+  {id:1193,jina:"Disco - Mjomba Dodoma",ahadi:200000,malipo:0,salio:200000},
+  {id:1194,jina:"Alex Werema",ahadi:100000,malipo:0,salio:100000},
+  {id:1195,jina:"Awadh Baruani",ahadi:100000,malipo:0,salio:100000},
+  {id:1196,jina:"Mc Jassy",ahadi:100000,malipo:0,salio:100000},
+  {id:1197,jina:"Proches Malamsha",ahadi:100000,malipo:0,salio:100000},
+  {id:1198,jina:"Esther Mapambio",ahadi:100000,malipo:0,salio:100000},
+  {id:1199,jina:"Mc Baby",ahadi:100000,malipo:0,salio:100000},
+  {id:1200,jina:"Agustino",ahadi:0,malipo:0,salio:0},
+  {id:1201,jina:"Jagadi",ahadi:0,malipo:0,salio:0},
+  {id:1202,jina:"Seba Shop",ahadi:100000,malipo:0,salio:100000},
+  {id:1203,jina:"Etyefyose Mushi",ahadi:100000,malipo:0,salio:100000},
+  {id:1204,jina:"Tulo Chanyegela",ahadi:100000,malipo:100000,salio:0},
+  {id:1205,jina:"Humphrey Mhada",ahadi:150000,malipo:150000,salio:0},
+  {id:1206,jina:"Joseph Kusekwa",ahadi:100000,malipo:0,salio:100000},
+  {id:1207,jina:"Mama Bruno",ahadi:200000,malipo:0,salio:200000},
+  {id:1208,jina:"Mzee Olotu",ahadi:100000,malipo:0,salio:100000},
+  {id:1209,jina:"Praxeda Family",ahadi:100000,malipo:0,salio:100000},
+  {id:1210,jina:"Dr. Enock Mbekomize",ahadi:0,malipo:0,salio:0},
+  {id:1211,jina:"Erasto",ahadi:100000,malipo:0,salio:100000},
+  {id:1212,jina:"Kimario Jiji",ahadi:100000,malipo:0,salio:100000},
+  {id:1213,jina:"Eng. Swai",ahadi:100000,malipo:0,salio:100000},
+  {id:1214,jina:"Eng Amos Msau",ahadi:100000,malipo:0,salio:100000},
+  {id:1215,jina:"Mama Mabeba",ahadi:100000,malipo:0,salio:100000},
+  {id:1216,jina:"Godlove Muro",ahadi:100000,malipo:0,salio:100000},
+  {id:1217,jina:"Zakaria Chuwa",ahadi:100000,malipo:0,salio:100000},
+  {id:1218,jina:"Edumael Mushi",ahadi:100000,malipo:0,salio:100000},
+  {id:1219,jina:"Casto Samba",ahadi:100000,malipo:0,salio:100000},
+  {id:1220,jina:"Richard Kilite",ahadi:100000,malipo:0,salio:100000},
+  {id:1221,jina:"Geleta Allen",ahadi:100000,malipo:0,salio:100000},
+  {id:1222,jina:"Samwel Magwisha",ahadi:100000,malipo:0,salio:100000},
+  {id:1223,jina:"Yare Catering",ahadi:100000,malipo:0,salio:100000},
+  {id:1224,jina:"Amos Raphael",ahadi:100000,malipo:0,salio:100000},
+  {id:1225,jina:"Mussa Tailor",ahadi:100000,malipo:0,salio:100000},
+  {id:1226,jina:"Happy Kitchen",ahadi:100000,malipo:0,salio:100000},
+  {id:1227,jina:"Benny Liawa",ahadi:200000,malipo:0,salio:200000},
+  {id:1228,jina:"Emmanuel Silaa",ahadi:100000,malipo:0,salio:100000},
+  {id:1229,jina:"Gerald (spare)",ahadi:80000,malipo:0,salio:80000},
+  {id:1230,jina:"Nico Kiberenge",ahadi:100000,malipo:0,salio:100000},
+  {id:1231,jina:"Adam Mafoil",ahadi:100000,malipo:0,salio:100000},
+  {id:1232,jina:"Masunya",ahadi:100000,malipo:0,salio:100000},
+  {id:1233,jina:"Mushi CRDB",ahadi:100000,malipo:0,salio:100000},
+  {id:1234,jina:"MC Mark Junior",ahadi:100000,malipo:0,salio:100000},
+  {id:1235,jina:"Cuthbert",ahadi:100000,malipo:0,salio:100000},
+  {id:1236,jina:"Mwisa",ahadi:100000,malipo:0,salio:100000},
+  {id:1237,jina:"Antory Piere",ahadi:100000,malipo:0,salio:100000},
+  {id:1238,jina:"Piere Mengsen",ahadi:100000,malipo:0,salio:100000},
+  {id:1239,jina:"Tekra",ahadi:100000,malipo:0,salio:100000},
+  {id:1240,jina:"MC Mziwanda",ahadi:100000,malipo:0,salio:100000},
+  {id:1241,jina:"MC Nathar",ahadi:100000,malipo:0,salio:100000},
+  {id:1242,jina:"Onyango",ahadi:100000,malipo:0,salio:100000},
+  {id:1243,jina:"Raphael",ahadi:100000,malipo:0,salio:100000},
+  {id:1244,jina:"Sadiki Omollo",ahadi:100000,malipo:0,salio:100000},
+  {id:1245,jina:"Mambo",ahadi:100000,malipo:0,salio:100000},
+  {id:1246,jina:"Colman Shao",ahadi:100000,malipo:0,salio:100000},
+  {id:1247,jina:"Adam Mafoil",ahadi:100000,malipo:0,salio:100000},
+  {id:1248,jina:"Moses Massawe",ahadi:100000,malipo:0,salio:100000},
+  {id:1249,jina:"Mwagolombo",ahadi:100000,malipo:0,salio:100000},
+  {id:1250,jina:"Justin Mmari",ahadi:100000,malipo:0,salio:100000},
+  {id:1251,jina:"Malaki",ahadi:100000,malipo:0,salio:100000},
+  {id:1252,jina:"Makupa",ahadi:100000,malipo:0,salio:100000},
+  {id:1253,jina:"Manka Toroka uje",ahadi:100000,malipo:0,salio:100000},
+  {id:1254,jina:"Mandela",ahadi:100000,malipo:0,salio:100000},
+  {id:1255,jina:"Mc Wakunganda",ahadi:100000,malipo:0,salio:100000},
+  {id:1256,jina:"Mc Joka",ahadi:100000,malipo:0,salio:100000},
+  {id:1257,jina:"Mkama H20",ahadi:100000,malipo:0,salio:100000},
+  {id:1258,jina:"MCH Sinyangwa",ahadi:100000,malipo:0,salio:100000},
+  {id:1259,jina:"Kavula Catalin",ahadi:100000,malipo:0,salio:100000},
+  {id:1260,jina:"Maramsha",ahadi:100000,malipo:0,salio:100000},
+  {id:1261,jina:"Ndoni",ahadi:100000,malipo:0,salio:100000},
+  {id:1262,jina:"Livuka",ahadi:100000,malipo:0,salio:100000},
+  {id:1263,jina:"Da Matii",ahadi:100000,malipo:0,salio:100000},
+  {id:1264,jina:"Mwita Tarime",ahadi:100000,malipo:0,salio:100000},
+  {id:1265,jina:"Happy Frank",ahadi:100000,malipo:0,salio:100000},
+  {id:1266,jina:"Frida Frank",ahadi:100000,malipo:0,salio:100000},
+  {id:1267,jina:"Emmanuel Sizy",ahadi:100000,malipo:0,salio:100000},
+  {id:1268,jina:"Madam",ahadi:100000,malipo:0,salio:100000},
+  {id:1269,jina:"FR Matii",ahadi:100000,malipo:0,salio:100000},
+  {id:1270,jina:"Godfrey",ahadi:100000,malipo:0,salio:100000},
+  {id:1271,jina:"Salum",ahadi:100000,malipo:0,salio:100000},
+  {id:1272,jina:"Erick",ahadi:100000,malipo:0,salio:100000},
+  {id:1273,jina:"Dada Happy",ahadi:0,malipo:0,salio:0},
+  {id:1274,jina:"Allen",ahadi:0,malipo:0,salio:0},
+  {id:1275,jina:"Amina Mangu",ahadi:0,malipo:0,salio:0},
+  {id:1276,jina:"Angele CRDB",ahadi:0,malipo:0,salio:0},
+  {id:1277,jina:"Anicethe",ahadi:0,malipo:0,salio:0},
+  {id:1278,jina:"Boc Gabalema",ahadi:0,malipo:0,salio:0},
+  {id:1279,jina:"Mama Jack",ahadi:0,malipo:0,salio:0},
+  {id:1280,jina:"Bonnie DTB",ahadi:0,malipo:0,salio:0},
+  {id:1281,jina:"Bro Kija",ahadi:0,malipo:0,salio:0},
+  {id:1282,jina:"Bro Syon",ahadi:0,malipo:0,salio:0},
+  {id:1283,jina:"Chacha Cf",ahadi:0,malipo:0,salio:0},
+  {id:1284,jina:"Cliff Zongi",ahadi:0,malipo:0,salio:0},
+  {id:1285,jina:"Dada Chikuchande",ahadi:0,malipo:0,salio:0},
+  {id:1286,jina:"Chris Malondu",ahadi:0,malipo:0,salio:0},
+  {id:1287,jina:"Dj Coolcat",ahadi:0,malipo:0,salio:0},
+  {id:1288,jina:"Mama Fay",ahadi:0,malipo:0,salio:0},
+  {id:1289,jina:"Malcus",ahadi:0,malipo:0,salio:0}
+];
 
 let isAdmin = false;
 let allRecords = [];
-let nextId = 1000;
+let nextId = 1290;
 
 function fmt(n) {
   return 'Tsh ' + Number(n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function loadData() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    allRecords = JSON.parse(saved);
+  } else {
+    allRecords = DEFAULT_RECORDS.map(r => ({...r}));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+  }
+  nextId = allRecords.length > 0 ? Math.max(...allRecords.map(r => r.id)) + 1 : 1290;
+  renderTable();
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
 }
 
 // Auth
@@ -221,32 +511,6 @@ function updateAdminUI() {
   document.getElementById('loginBtn').style.display = isAdmin ? 'none' : 'inline-block';
   document.getElementById('logoutBtn').style.display = isAdmin ? 'inline-block' : 'none';
   document.getElementById('addForm').classList.toggle('visible', isAdmin);
-}
-
-// JSONBin
-async function loadData() {
-  try {
-    const res = await fetch(BASE_URL + '/latest', { headers: { 'X-Master-Key': API_KEY } });
-    const json = await res.json();
-    allRecords = json.record.records || [];
-    nextId = allRecords.length > 0 ? Math.max(...allRecords.map(r => r.id)) + 1 : 1;
-    renderTable();
-  } catch(e) {
-    console.error(e);
-    document.getElementById('tableBody').innerHTML = '<div class="empty-state">Hitilafu ya kupakia data. Refresh ukurasa.</div>';
-  }
-}
-
-async function saveData() {
-  document.getElementById('savingOverlay').classList.add('open');
-  try {
-    await fetch(BASE_URL, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-      body: JSON.stringify({ records: allRecords })
-    });
-  } catch(e) { alert('Hitilafu ya kuhifadhi! Jaribu tena.'); }
-  finally { document.getElementById('savingOverlay').classList.remove('open'); }
 }
 
 // Render
@@ -303,18 +567,18 @@ function cancelAdd() {
   document.getElementById('inputMalipo').value = '';
   document.getElementById('salioPreview').textContent = 'Tsh 0';
 }
-async function saveRecord() {
+function saveRecord() {
   const jina = document.getElementById('inputJina').value.trim();
   if (!jina) return alert('Tafadhali weka jina');
   const ahadi = parseFloat(document.getElementById('inputAhadi').value)||0;
   const malipo = parseFloat(document.getElementById('inputMalipo').value)||0;
   allRecords.push({ id: nextId++, jina, ahadi, malipo, salio: ahadi-malipo });
-  await saveData();
+  saveData();
   cancelAdd();
   renderTable();
 }
 
-// Edit (in-place — mtu habadiliki nafasi)
+// Edit
 function openEditModal(id) {
   const r = allRecords.find(x => x.id === id);
   if (!r) return;
@@ -331,7 +595,7 @@ function updateEditSalioPreview() {
   const m = parseFloat(document.getElementById('editMalipo').value)||0;
   document.getElementById('editSalioPreview').textContent = fmt(a-m);
 }
-async function saveEdit() {
+function saveEdit() {
   const id = parseInt(document.getElementById('editId').value);
   const jina = document.getElementById('editJina').value.trim();
   if (!jina) return alert('Tafadhali weka jina');
@@ -341,9 +605,8 @@ async function saveEdit() {
   const idx = allRecords.findIndex(x => x.id === id);
   if (idx === -1) return;
   allRecords[idx] = { ...allRecords[idx], jina, ahadi, malipo, salio };
-  await saveData();
+  saveData();
   closeEditModal();
-  // Update row in-place — mtu hahamii
   const row = document.getElementById('row_' + id);
   if (row) {
     const cells = row.querySelectorAll('td');
@@ -360,11 +623,11 @@ async function saveEdit() {
 }
 
 // Delete
-async function deleteRecord(id) {
+function deleteRecord(id) {
   const r = allRecords.find(x => x.id === id);
   if (!confirm('Una uhakika unataka kufuta "' + (r?r.jina:'') + '"?')) return;
   allRecords = allRecords.filter(x => x.id !== id);
-  await saveData();
+  saveData();
   renderTable();
 }
 
@@ -381,12 +644,12 @@ function clearSelection() {
   const sa = document.getElementById('selectAll'); if (sa) sa.checked = false;
   document.getElementById('bulkBar').classList.remove('visible');
 }
-async function bulkDelete() {
+function bulkDelete() {
   const ids = getSelectedIds();
   if (!ids.length) return;
   if (!confirm('Una uhakika unataka kufuta watu ' + ids.length + ' waliochaguliwa?')) return;
   allRecords = allRecords.filter(r => !ids.includes(r.id));
-  await saveData();
+  saveData();
   clearSelection();
   renderTable();
 }
